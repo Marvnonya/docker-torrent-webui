@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+.tracker_config.json
+torrent/
+.DS_Store
