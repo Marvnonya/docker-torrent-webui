@@ -4,8 +4,7 @@ FROM python:3.9-slim
 # 设置工作目录
 WORKDIR /app
 
-# 安装系统依赖：mktorrent, mediainfo 和 ffmpeg
-# 这一步会下载比较多的包，请耐心等待
+# 安装系统依赖
 RUN apt-get update && \
     apt-get install -y mktorrent mediainfo ffmpeg && \
     rm -rf /var/lib/apt/lists/*
