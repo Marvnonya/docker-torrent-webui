@@ -70,40 +70,45 @@ def get_video_duration(video_path):
         return float(val) if val else 0
     except: return 0
 
-# === 新增：上传图片到 Pixhost ===
+# === 修改后：上传图片到 Pixhost 并获取原图直链 ===
 def upload_to_pixhost(file_path):
     """
-    上传单张图片到 Pixhost 并返回论坛代码
-    API参考: https://api.pixhost.to/images
-    参数: img(文件), content_type(0=Safe), max_th_size(缩略图大小)
+    上传单张图片到 Pixhost 并返回 [img]原图[/img] 格式
+    修改点：
+    1. 路径 /thumbs/ -> /images/
+    2. 域名 t1.pixhost.to -> img1.pixhost.to
     """
     upload_url = "https://api.pixhost.to/images"
     try:
         with open(file_path, 'rb') as f:
-            # 构造 multipart/form-data
             files = {'img': f}
             data = {
-                "content_type": "0",  # 0 = Family Safe
-                "max_th_size": "350"  # 设置缩略图宽度为350px，比默认200清晰
+                "content_type": "0", 
+                "max_th_size": "400"
             }
-            # 设置 Accept header
             headers = {"Accept": "application/json"}
             
-            # 发送请求
             response = requests.post(upload_url, files=files, data=data, headers=headers, timeout=60)
             
             if response.status_code == 200:
                 res_json = response.json()
-                show_url = res_json.get('show_url') # 查看页面
-                th_url = res_json.get('th_url')     # 缩略图直链
+                th_url = res_json.get('th_url')
                 
-                # 返回标准 PT 站格式：点击缩略图跳转到查看页
-                # 格式: [url=查看页][img]缩略图[/img][/url]
-                if show_url and th_url:
-                    # 处理 URL 中的转义字符 (Python requests通常会自动处理，但为了保险)
-                    show_url = show_url.replace('\\/', '/')
+                if th_url:
                     th_url = th_url.replace('\\/', '/')
-                    return f"[url={show_url}][img]{th_url}[/img][/url]"
+                    
+                    # 1. 替换路径：从缩略图路径改为原图路径
+                    full_url = th_url.replace('/thumbs/', '/images/')
+                    
+                    # 2. 替换域名：将 t1 改为 img1 (也兼容 t2->img2, t3->img3 等情况)
+                    # 逻辑：将链接中的 "https://t" 替换为 "https://img"
+                    # 这样 https://t1.pixhost.to 就变成了 https://img1.pixhost.to
+                    full_url = full_url.replace('https://t', 'https://img')
+                    
+                    # 如果只想严格替换 t1 -> img1，可以使用下面这行注释掉的代码代替上面那行：
+                    # full_url = full_url.replace('t1.pixhost.to', 'img1.pixhost.to')
+                    
+                    return f"[img]{full_url}[/img]"
             else:
                 print(f"Pixhost Error: {response.text}")
     except Exception as e:
