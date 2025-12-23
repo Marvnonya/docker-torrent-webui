@@ -6,7 +6,7 @@ import threading
 import zipfile
 import sys
 import uuid
-import requests  # 新增引用
+import requests
 from functools import wraps
 from urllib.parse import unquote, unquote_plus
 from flask import Flask, render_template, request, send_file, flash, redirect, url_for, session, jsonify
@@ -70,7 +70,68 @@ def get_video_duration(video_path):
         return float(val) if val else 0
     except: return 0
 
-# === 修改后：上传图片到 Pixhost 并获取原图直链 ===
+# === 新增功能：提取字幕核心逻辑 ===
+def extract_subtitle_streams(video_path):
+    """
+    使用 FFprobe 分析视频包含的字幕流，并使用 FFmpeg 提取出来
+    """
+    try:
+        # 1. 使用 ffprobe 获取流信息 (JSON格式)
+        cmd_probe = [
+            "ffprobe", "-v", "error", 
+            "-select_streams", "s", 
+            "-show_entries", "stream=index:stream_tags=language,title:stream=codec_name", 
+            "-of", "json", 
+            video_path
+        ]
+        result = subprocess.run(cmd_probe, capture_output=True, text=True)
+        # 如果没有字幕流，ffprobe 有时返回空或仅包含 headers
+        try:
+            data = json.loads(result.stdout)
+        except:
+            return False, "无法读取媒体信息"
+        
+        streams = data.get('streams', [])
+        if not streams:
+            return False, "未检测到字幕流"
+
+        extracted_count = 0
+        base_name = os.path.splitext(video_path)[0] # 去掉后缀的完整路径
+        
+        # 2. 遍历每个字幕流进行提取
+        for stream in streams:
+            idx = stream.get('index')
+            codec = stream.get('codec_name', 'srt')
+            tags = stream.get('tags', {})
+            lang = tags.get('language', 'und') # 语言代码，如 eng, chi
+            
+            # 确定后缀名
+            ext = 'srt'
+            if 'ass' in codec or 'ssa' in codec: ext = 'ass'
+            elif 'pgs' in codec or 'hdmv' in codec: ext = 'sup' # 图片字幕
+            elif 'dvd' in codec or 'vob' in codec: ext = 'sub'
+            
+            # 构建输出文件名: 视频名.语言.索引.后缀
+            # 例如: Movie.chi.2.srt
+            out_name = f"{base_name}.{lang}.{idx}.{ext}"
+            
+            # 使用 ffmpeg 提取流 (stream mapping)
+            # -map 0:x 选中特定流，-c copy 直接复制不转码
+            cmd_extract = [
+                "ffmpeg", "-y", "-i", video_path, 
+                "-map", f"0:{idx}", 
+                "-c", "copy", 
+                out_name
+            ]
+            subprocess.run(cmd_extract, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            
+            if os.path.exists(out_name) and os.path.getsize(out_name) > 0:
+                extracted_count += 1
+
+        return True, f"成功提取 {extracted_count} 条字幕"
+    except Exception as e:
+        return False, str(e)
+
 def upload_to_pixhost(file_path):
     """
     上传单张图片到 Pixhost 并返回 [img]原图[/img] 格式
@@ -100,13 +161,8 @@ def upload_to_pixhost(file_path):
                     # 1. 替换路径：从缩略图路径改为原图路径
                     full_url = th_url.replace('/thumbs/', '/images/')
                     
-                    # 2. 替换域名：将 t1 改为 img1 (也兼容 t2->img2, t3->img3 等情况)
-                    # 逻辑：将链接中的 "https://t" 替换为 "https://img"
-                    # 这样 https://t1.pixhost.to 就变成了 https://img1.pixhost.to
+                    # 2. 替换域名：将 t1 改为 img1
                     full_url = full_url.replace('https://t', 'https://img')
-                    
-                    # 如果只想严格替换 t1 -> img1，可以使用下面这行注释掉的代码代替上面那行：
-                    # full_url = full_url.replace('t1.pixhost.to', 'img1.pixhost.to')
                     
                     return f"[img]{full_url}[/img]"
             else:
@@ -120,7 +176,6 @@ def generate_screenshots(video_path, output_base_path, mode, quality):
     settings_grid = {'small': (320, 15), 'medium': (640, 5), 'large': (1280, 2)}
     settings_full = {'medium': (1920, 1, ["-qmin", "1", "-qmax", "1"]), 'large': (0, 1, ["-qmin", "1", "-qmax", "1"])}
     
-    # 新增：用于记录生成了哪些图片路径，供后续上传
     generated_images = []
 
     try:
@@ -132,7 +187,6 @@ def generate_screenshots(video_path, output_base_path, mode, quality):
         result_file = None; preview_data = None
         
         if mode == 'grid':
-            # 拼图模式
             width, q_val = settings_grid.get(quality, (640, 5))
             output_jpg = output_base_path + "_Thumb.jpg"
             blank_img = os.path.join(temp_dir, "blank.jpg")
@@ -148,10 +202,9 @@ def generate_screenshots(video_path, output_base_path, mode, quality):
             subprocess.run(cmd_tile, capture_output=True)
             if os.path.exists(output_jpg): 
                 result_file = output_jpg; preview_data = output_jpg
-                generated_images.append(output_jpg) # 记录图片路径
+                generated_images.append(output_jpg) 
             else: return "error", "拼图生成失败"
         else:
-            # 普通多张截图模式
             target_width, q_val, extra_flags = settings_full.get(quality, (1920, 1, []))
             image_list = []
             steps = 7
@@ -165,7 +218,7 @@ def generate_screenshots(video_path, output_base_path, mode, quality):
                 subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 if os.path.exists(img_path) and os.path.getsize(img_path) > 0: 
                     image_list.append(img_path)
-                    generated_images.append(img_path) # 记录图片路径
+                    generated_images.append(img_path) 
             
             zip_path = output_base_path + "_Screenshots.zip"
             if image_list:
@@ -174,7 +227,6 @@ def generate_screenshots(video_path, output_base_path, mode, quality):
                 result_file = zip_path; preview_data = image_list[0] if len(image_list) > 0 else None
             else: return "error", "截图失败"
         
-        # 返回结果中增加 'images' 列表
         return "success", {"file": result_file, "preview": preview_data, "images": generated_images}
     except Exception as e: return "error", str(e)
     finally:
@@ -189,7 +241,6 @@ def background_process(tracker_url, is_private, comment, piece_size, full_source
         f_info = os.path.join(output_folder, f"{base_name}_MediaInfo.txt")
         f_shot_base = os.path.join(output_folder, base_name)
         
-        # 清理旧文件
         for f in [f_torrent, f_info, f_shot_base + "_Screenshots.zip"]:
             if os.path.exists(f): 
                 try: os.remove(f)
@@ -222,7 +273,6 @@ def background_process(tracker_url, is_private, comment, piece_size, full_source
                  if res.get('file'): task_store[task_id]['files']['shot_download'] = res['file']
                  if res.get('preview'): task_store[task_id]['files']['shot_preview'] = res['preview']
                  
-                 # === 开始上传图片 ===
                  image_files = res.get('images', [])
                  if image_files:
                      task_store[task_id]['msg'] = f'正在上传 {len(image_files)} 张图片到 Pixhost...'
@@ -231,9 +281,7 @@ def background_process(tracker_url, is_private, comment, piece_size, full_source
                          code = upload_to_pixhost(img_p)
                          if code:
                              bbcode_lines.append(code)
-                         # 稍微慢一点点避免被 ban，虽然 requests 是同步的本身就有延迟
                      task_store[task_id]['bbcode'] = "\n".join(bbcode_lines)
-                 # ===================
 
                  task_store[task_id]['msg'] = '✅ 全部成功'
             else: task_store[task_id]['msg'] = f"⚠️ 截图失败: {res}"
@@ -272,7 +320,6 @@ def check_status():
     if task_id and task_id in task_store: return jsonify(task_store[task_id])
     return jsonify({'status': 'unknown'})
 
-# === 文件管理 API ===
 @app.route('/api/list_files', methods=['POST'])
 @login_required
 def list_files():
@@ -338,6 +385,19 @@ def file_op():
             full_target = get_safe_path(os.path.join(current_path, filename))
             with open(full_target, 'w', encoding='utf-8') as f: f.write(content)
             return jsonify({'success': True})
+        
+        # === 新增：处理提取字幕请求 ===
+        elif op_type == 'extract_subs':
+            filename = data.get('filename')
+            full_target = get_safe_path(os.path.join(current_path, filename))
+            
+            if not os.path.exists(full_target):
+                return jsonify({'success': False, 'msg': '文件不存在'})
+                
+            success, msg = extract_subtitle_streams(full_target)
+            return jsonify({'success': success, 'msg': msg})
+        # ================================
+
         elif op_type == 'batch_delete':
             filenames = data.get('filenames', [])
             if not filenames: return jsonify({'success': False, 'msg': '未选择文件'})
@@ -370,7 +430,6 @@ def file_op():
         return jsonify({'success': False, 'msg': '未知操作'})
     except Exception as e: return jsonify({'success': False, 'msg': str(e)})
 
-# === 任务提交 API ===
 @app.route('/api/submit_task', methods=['POST'])
 @login_required
 def submit_task():
@@ -432,7 +491,6 @@ def index():
                 elif isinstance(p, list) and len(p) > 0 and os.path.exists(p[0]): img_path = p[0]
             if img_path: shot_preview_link = url_for('view_image', path=img_path)
             
-            # === 获取 BBCode ===
             bbcode_content = task_data.get('bbcode', '')
 
     return render_template('index.html', 
