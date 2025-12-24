@@ -15,7 +15,6 @@
         #batch-actions-bar { display: none; background: #e9ecef; border-bottom: 1px solid #dee2e6; padding: 8px; margin-bottom: 10px; border-radius: 5px; }
         .breadcrumb-item { cursor: pointer; color: #0d6efd; }
         .breadcrumb-item:hover { text-decoration: underline; }
-
         /* 新增：日志控制台样式 */
         .log-console {
             background-color: #1e1e1e;
@@ -73,7 +72,22 @@
                     </div>
                     {% endif %}
                 </div>
+
+                <div class="col-md-8">
+                    <h6>预览 & BBCode:</h6>
+                    {% if shot_preview_link %}
+                    <div class="mb-3 text-center bg-dark rounded p-2">
+                        <img src="{{ shot_preview_link }}" class="thumb-preview" alt="截图预览">
+                        <div class="text-white small mt-1">截图预览</div>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-secondary text-center">无预览图 (生成失败或未开启)</div>
+                    {% endif %}
+
+                    <h6>BBCode (可直接复制):</h6>
+                    <textarea class="form-control" rows="12" style="font-family: monospace; font-size: 0.85rem;" onclick="this.select()">{{ bbcode_content }}</textarea>
                 </div>
+            </div>
             <hr>
             {% endif %}
 

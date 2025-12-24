@@ -584,6 +584,10 @@ def file_op():
 def submit_task():
     try:
         rel_path = request.form.get('path', '').strip()
+        # === 核心修复：解码路径 ===
+        # 前端传来的可能是URL编码过的(比如 %20)，需要转回正常空格，否则系统找不到文件夹
+        rel_path = unquote(rel_path)
+        
         tracker_url = request.form.get('tracker', '').strip()
         save_default = request.form.get('save_default')
         is_private = request.form.get('private')
