@@ -404,6 +404,54 @@ def extract_subtitle_streams(video_path):
         return True, f"提取 {count} 条字幕"
     except Exception as e: return False, str(e)
 
+# === 新增：音轨提取逻辑 ===
+def extract_audio_streams(video_path):
+    try:
+        # 使用 ffprobe 获取音频流信息
+        cmd_probe = ["ffprobe", "-v", "error", "-select_streams", "a", "-show_entries", "stream=index:stream_tags=language,title:stream=codec_name", "-of", "json", video_path]
+        result = subprocess.run(cmd_probe, capture_output=True, text=True)
+        try: 
+            data = json.loads(result.stdout)
+        except: 
+            return False, "无法读取媒体信息"
+            
+        streams = data.get('streams', [])
+        if not streams: 
+            return False, "未检测到音频流"
+            
+        count = 0
+        base_name = os.path.splitext(video_path)[0]
+        
+        # 常见编码对应后缀映射
+        codec_map = {
+            'aac': 'm4a', 'ac3': 'ac3', 'eac3': 'eac3',
+            'dts': 'dts', 'truehd': 'thd', 'flac': 'flac',
+            'mp3': 'mp3', 'opus': 'opus', 'vorbis': 'ogg',
+            'pcm_s16le': 'wav', 'pcm_s24le': 'wav'
+        }
+
+        for stream in streams:
+            idx = stream.get('index')
+            codec = stream.get('codec_name', 'unknown')
+            tags = stream.get('tags', {})
+            lang = tags.get('language', 'und')
+            
+            # 根据编码决定后缀，未知的默认为 mka
+            ext = codec_map.get(codec, 'mka')
+            
+            # 文件名格式: 视频名.语言.流索引.后缀
+            out_name = f"{base_name}.{lang}.{idx}.{ext}"
+            
+            # 提取命令 (-c copy 无损提取)
+            subprocess.run(["ffmpeg", "-y", "-i", video_path, "-map", f"0:{idx}", "-c", "copy", out_name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            
+            if os.path.exists(out_name): 
+                count += 1
+                
+        return True, f"成功提取 {count} 条音轨"
+    except Exception as e: 
+        return False, str(e)
+        
 # ================= 路由 =================
 def login_required(f):
     @wraps(f)
@@ -513,6 +561,12 @@ def file_op():
             filename = data.get('filename')
             full_target = get_safe_path(os.path.join(current_path, filename))
             success, msg = extract_subtitle_streams(full_target)
+            return jsonify({'success': success, 'msg': msg})
+
+        elif op_type == 'extract_audio':
+            filename = data.get('filename')
+            full_target = get_safe_path(os.path.join(current_path, filename))
+            success, msg = extract_audio_streams(full_target)
             return jsonify({'success': success, 'msg': msg})
 
         # === 核心修改：翻译任务 ===

@@ -379,30 +379,39 @@
             if (f.type !== 'dir' && (lowerName.endsWith('.mkv') || lowerName.endsWith('.mp4'))) {
                 actions = `
                     <button type="button" class="btn btn-outline-info action-btn" onclick="extractSubs('${f.name}')">提取字幕</button>
+                    <button type="button" class="btn btn-outline-primary action-btn ms-1" onclick="extractAudio('${f.name}')">提取音轨</button>
                     ${actions}
                 `;
             }
 
-            // === 字幕下载与翻译 ===
+            // === 修改开始：音频与字幕下载逻辑 ===
             const subExts = ['.srt', '.ass', '.ssa', '.sup', '.sub', '.vtt'];
+            // 新增：定义常见的音频后缀
+            const audioExts = ['.m4a', '.ac3', '.eac3', '.dts', '.flac', '.wav', '.mp3', '.mka', '.opus', '.ogg', '.thd'];
+            
             const isSubtitle = subExts.some(ext => lowerName.endsWith(ext));
+            const isAudio = audioExts.some(ext => lowerName.endsWith(ext));
 
-            if (f.type !== 'dir' && isSubtitle) {
+            // 只要是 字幕 或 音频，都显示下载按钮
+            if (f.type !== 'dir' && (isSubtitle || isAudio)) {
                 let fullPath = '/data/' + (currentScanPath ? currentScanPath + '/' : '') + f.name;
                 
-                let isTranslated = lowerName.includes('.chi.') || lowerName.includes('.zh.');
-                
                 let translateBtn = '';
-                if (['.srt', '.ass', '.ssa', '.vtt'].some(ext => lowerName.endsWith(ext)) && !isTranslated) {
-                    translateBtn = `<button type="button" class="btn btn-outline-warning action-btn ms-1" onclick="openTranslateConfig('${f.name}')">🇨🇳 翻译</button>`;
+                // 只有字幕且未翻译过时，才显示翻译按钮
+                if (isSubtitle) {
+                    let isTranslated = lowerName.includes('.chi.') || lowerName.includes('.zh.');
+                    if (['.srt', '.ass', '.ssa', '.vtt'].some(ext => lowerName.endsWith(ext)) && !isTranslated) {
+                        translateBtn = `<button type="button" class="btn btn-outline-warning action-btn ms-1" onclick="openTranslateConfig('${f.name}')">🇨🇳 翻译</button>`;
+                    }
                 }
 
                 actions = `
-                    <a href="/download?file=${encodeURIComponent(fullPath)}" class="btn btn-outline-secondary action-btn" title="下载字幕">⬇️ 下载</a>
+                    <a href="/download?file=${encodeURIComponent(fullPath)}" class="btn btn-outline-secondary action-btn" title="点击下载">⬇️ 下载</a>
                     ${translateBtn}
                     ${actions}
                 `;
             }
+            // === 修改结束 ===
             
             tdAction.innerHTML = actions;
             tr.appendChild(tdAction);
@@ -562,6 +571,39 @@
             if (data.success) { alert("完成: " + data.msg); loadDir(currentScanPath); } else { alert("提取失败: " + data.msg); }
         })
         .catch(err => alert("请求错误: " + err));
+    }
+
+    function extractAudio(name) {
+        if (!confirm(`确定要从视频 "${name}" 中提取所有音轨吗？\n提取的音频将保存在当前目录下。`)) return;
+        
+        // 显示一个临时的加载状态（可选，但推荐）
+        const originalText = event.target.innerText;
+        event.target.innerText = "提取中...";
+        event.target.disabled = true;
+
+        fetch('/api/file_op', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({type: 'extract_audio', current_path: currentScanPath, filename: name})
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) { 
+                alert("完成: " + data.msg); 
+                loadDir(currentScanPath); 
+            } else { 
+                alert("提取失败: " + data.msg); 
+                // 恢复按钮状态
+                event.target.innerText = originalText;
+                event.target.disabled = false;
+            }
+        })
+        .catch(err => {
+            alert("请求错误: " + err);
+            // 恢复按钮状态
+            event.target.innerText = originalText;
+            event.target.disabled = false;
+        });
     }
 
     // === 翻译流程 ===
