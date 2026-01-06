@@ -1,22 +1,22 @@
-# 基础镜像
+# Base image
 FROM python:3.9-slim
 
-# 设置工作目录
+# Set the working directory
 WORKDIR /app
 
-# 安装系统依赖
+# Install system dependencies
 RUN apt-get update && \
     apt-get install -y mktorrent mediainfo ffmpeg && \
     rm -rf /var/lib/apt/lists/*
 
-# 安装 Python 依赖 (增加了 requests 和 openai)
+# Installing Python dependencies (requests and openai added)
 RUN pip install --no-cache-dir flask requests openai
 
-# 复制当前目录代码
+# Copy the code for the current directory
 COPY . .
 
-# 暴露端口
+# Exposed port
 EXPOSE 5000
 
-# 启动命令
+# Start command
 CMD ["python", "app.py"]
