@@ -55,7 +55,7 @@
                 {% if not error_msg %}<h4 class="text-success fw-bold mb-3">✅ Task completed</h4>{% endif %}
                 {% if error_msg %}<div class="alert alert-warning">{{ error_msg }}</div>{% endif %}
                 
-                <div class="mb-3"><a href="/" class="btn btn-primary btn-lg px-4 shadow-sm">🔄 Creating New Seeds (Return to Homepage)</a></div>
+                <div class="mb-3"><a href="/" class="btn btn-primary btn-lg px-4 shadow-sm">🔄 Create new torrents (Return to Homepage)</a></div>
                 <div class="btn-group">
                     {% if download_path %}<a href="/download?file={{ download_path }}" class="btn btn-success">⬇️ Download the torrent</a>{% endif %}
                     {% if mediainfo_link %}<a href="/download?file={{ mediainfo_link }}" class="btn btn-info text-white">⬇️ Download Info</a>{% endif %}
