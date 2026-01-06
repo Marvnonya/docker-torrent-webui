@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>种子工厂 Ultimate</title>
+    <title>Torrentmaker Ultimate</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body { background-color: #f8f9fa; padding-top: 20px; padding-bottom: 50px; }
@@ -15,7 +15,7 @@
         #batch-actions-bar { display: none; background: #e9ecef; border-bottom: 1px solid #dee2e6; padding: 8px; margin-bottom: 10px; border-radius: 5px; }
         .breadcrumb-item { cursor: pointer; color: #0d6efd; }
         .breadcrumb-item:hover { text-decoration: underline; }
-        /* 新增：日志控制台样式 */
+        /* New: Log console styling */
         .log-console {
             background-color: #1e1e1e;
             color: #00ff00;
@@ -34,8 +34,8 @@
 <body>
 <div class="container" style="max-width: 1200px;"> 
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h3>🏭 种子工厂 Ultimate</h3>
-        <a href="/logout" class="btn btn-outline-danger btn-sm">退出登录</a>
+        <h3>Torrentmaker Ultimate</h3>
+        <a href="/logout" class="btn btn-outline-danger btn-sm">Log out</a>
     </div>
 
     <div class="card shadow-sm">
@@ -44,22 +44,22 @@
                 <div class="d-flex align-items-center">
                     <div class="spinner-border text-primary spinner-border-sm me-3" role="status"></div>
                     <div>
-                        <strong id="status-text">正在初始化任务...</strong>
-                        <p class="mb-0 small text-muted">请勿关闭页面，完成后会自动展示结果。</p>
+                        <strong id="status-text">Initialising task...</strong>
+                        <p class="mb-0 small text-muted">Please do not close this page; the results will be displayed automatically upon completion.</p>
                     </div>
                 </div>
             </div>
 
             {% if download_path or mediainfo_link or shot_download_link %}
             <div class="text-center mb-4 border-bottom pb-4 bg-light rounded p-3">
-                {% if not error_msg %}<h4 class="text-success fw-bold mb-3">✅ 任务完成</h4>{% endif %}
+                {% if not error_msg %}<h4 class="text-success fw-bold mb-3">✅ Task completed</h4>{% endif %}
                 {% if error_msg %}<div class="alert alert-warning">{{ error_msg }}</div>{% endif %}
                 
-                <div class="mb-3"><a href="/" class="btn btn-primary btn-lg px-4 shadow-sm">🔄 制作新种子 (返回首页)</a></div>
+                <div class="mb-3"><a href="/" class="btn btn-primary btn-lg px-4 shadow-sm">🔄 Creating New Seeds (Return to Homepage)</a></div>
                 <div class="btn-group">
-                    {% if download_path %}<a href="/download?file={{ download_path }}" class="btn btn-success">⬇️ 下载种子</a>{% endif %}
-                    {% if mediainfo_link %}<a href="/download?file={{ mediainfo_link }}" class="btn btn-info text-white">⬇️ 下载 Info</a>{% endif %}
-                    {% if shot_download_link %}<a href="/download?file={{ shot_download_link }}" class="btn btn-warning">⬇️ 下载截图包 (.zip)</a>{% endif %}
+                    {% if download_path %}<a href="/download?file={{ download_path }}" class="btn btn-success">⬇️ Download the torrent</a>{% endif %}
+                    {% if mediainfo_link %}<a href="/download?file={{ mediainfo_link }}" class="btn btn-info text-white">⬇️ Download Info</a>{% endif %}
+                    {% if shot_download_link %}<a href="/download?file={{ shot_download_link }}" class="btn btn-warning">⬇️ Download Screenshots (.zip)</a>{% endif %}
                 </div>
             </div>
             
@@ -74,17 +74,17 @@
                 </div>
 
                 <div class="col-md-8">
-                    <h6>预览 & BBCode:</h6>
+                    <h6>Preview & BBCode:</h6>
                     {% if shot_preview_link %}
                     <div class="mb-3 text-center bg-dark rounded p-2">
-                        <img src="{{ shot_preview_link }}" class="thumb-preview" alt="截图预览">
-                        <div class="text-white small mt-1">截图预览</div>
+                        <img src="{{ shot_preview_link }}" class="thumb-preview" alt="Screenshot preview">
+                        <div class="text-white small mt-1">Screenshot preview</div>
                     </div>
                     {% else %}
-                    <div class="alert alert-secondary text-center">无预览图 (生成失败或未开启)</div>
+                    <div class="alert alert-secondary text-center">No preview image (generation failed or feature disabled)</div>
                     {% endif %}
 
-                    <h6>BBCode (可直接复制):</h6>
+                    <h6>BBCode (Can be copied directly):</h6>
                     <textarea class="form-control" rows="12" style="font-family: monospace; font-size: 0.85rem;" onclick="this.select()">{{ bbcode_content }}</textarea>
                 </div>
             </div>
@@ -94,29 +94,29 @@
             {% if not download_path and not mediainfo_link %}
             <form id="main-form" onsubmit="return false;">
                 <div class="mb-3">
-                    <label class="form-label fw-bold">1. 文件/文件夹路径</label>
+                    <label class="form-label fw-bold">1. File/folder path</label>
                     <div class="input-group">
                         <span class="input-group-text">/data/</span>
                         <input type="text" id="input-path" name="path" class="form-control" placeholder="Movies/Avatar" required>
-                        <button class="btn btn-outline-secondary" type="button" id="btn-scan-dir">📂 读取目录</button>
+                        <button class="btn btn-outline-secondary" type="button" id="btn-scan-dir">📂 Read directory</button>
                     </div>
-                    <div class="form-text">输入路径后点击“读取”，可深入浏览文件夹。</div>
+                    <div class="form-text">After entering the path, click “Read” to explore the folder in depth.</div>
                 </div>
 
                 <div id="file-manager-section" class="mb-4 border rounded p-3 bg-white">
                     <div class="d-flex justify-content-between align-items-center mb-2">
-                        <nav aria-label="breadcrumb"><ol class="breadcrumb mb-0" id="path-breadcrumb"><li class="breadcrumb-item active">根目录</li></ol></nav>
+                        <nav aria-label="breadcrumb"><ol class="breadcrumb mb-0" id="path-breadcrumb"><li class="breadcrumb-item active">Root directory</li></ol></nav>
                         <div>
-                            <button type="button" class="btn btn-sm btn-outline-secondary me-1" onclick="goUpDir()">⬆️ 上一级</button>
-                            <button type="button" class="btn btn-sm btn-success" onclick="openCreateTxtModal()">+ 新建文件</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary me-1" onclick="goUpDir()">⬆️ Upper level</button>
+                            <button type="button" class="btn btn-sm btn-success" onclick="openCreateTxtModal()">+ New File</button>
                         </div>
                     </div>
 
                     <div id="batch-actions-bar" class="d-flex align-items-center justify-content-between">
-                        <div><span class="fw-bold text-primary">已选中 <span id="selected-count">0</span> 项</span></div>
+                        <div><span class="fw-bold text-primary">Already selected <span id="selected-count">0</span> Item</span></div>
                         <div>
-                            <button type="button" class="btn btn-sm btn-outline-primary me-2" onclick="openBatchMoveModal()">📦 批量移动</button>
-                            <button type="button" class="btn btn-sm btn-danger" onclick="batchDelete()">🗑️ 批量删除</button>
+                            <button type="button" class="btn btn-sm btn-outline-primary me-2" onclick="openBatchMoveModal()">📦 Batch move</button>
+                            <button type="button" class="btn btn-sm btn-danger" onclick="batchDelete()">🗑️ Batch delete</button>
                         </div>
                     </div>
 
@@ -125,9 +125,9 @@
                             <thead class="table-light">
                                 <tr>
                                     <th style="width: 30px;"><input type="checkbox" id="select-all-checkbox" onchange="toggleSelectAll()"></th>
-                                    <th>文件名</th>
-                                    <th style="width: 100px;">大小</th>
-                                    <th style="width: 240px; text-align: right;">操作</th>
+                                    <th>File name</th>
+                                    <th style="width: 100px;">Size</th>
+                                    <th style="width: 240px; text-align: right;">Operation</th>
                                 </tr>
                             </thead>
                             <tbody id="file-list-body"></tbody>
@@ -140,40 +140,40 @@
                     <input type="text" name="tracker" class="form-control" value="{{ default_tracker }}" required>
                     <div class="form-check mt-2">
                         <input class="form-check-input" type="checkbox" name="save_default" id="saveDefaultCheck">
-                        <label class="form-check-label text-muted" for="saveDefaultCheck">设为默认</label>
+                        <label class="form-check-label text-muted" for="saveDefaultCheck">Set as default</label>
                     </div>
                 </div>
                 
                 <div class="row bg-white p-2 border rounded mb-3 mx-0">
-                    <div class="col-12"><label class="form-label fw-bold text-primary">3. 截图设置</label></div>
+                    <div class="col-12"><label class="form-label fw-bold text-primary">3. Screenshot Settings</label></div>
                     <div class="col-md-6 mb-3">
-                        <label class="form-label small">模式</label>
+                        <label class="form-label small">pattern</label>
                         <div class="btn-group w-100" role="group">
                             <input type="radio" class="btn-check" name="shot_mode" id="modeGrid" value="grid" checked>
-                            <label class="btn btn-outline-secondary" for="modeGrid">4x4 拼图</label>
+                            <label class="btn btn-outline-secondary" for="modeGrid">4x4 Jigsaw puzzle</label>
                             <input type="radio" class="btn-check" name="shot_mode" id="modeFull" value="full">
-                            <label class="btn btn-outline-secondary" for="modeFull">普通截图</label>
+                            <label class="btn btn-outline-secondary" for="modeFull">Standard screenshot</label>
                         </div>
                     </div>
                     <div class="col-md-6 mb-3">
-                        <label class="form-label small">清晰度</label>
+                        <label class="form-label small">Clarity</label>
                         <select name="shot_quality" class="form-select">
-                            <option value="medium" selected>中 (推荐)</option>
-                            <option value="large">大 (原画)</option>
+                            <option value="medium" selected>(Recommended)</option>
+                            <option value="large">Large (Original Artwork)</option>
                         </select>
                     </div>
                 </div>
 
                 <div class="row">
                     <div class="col-md-6 mb-3">
-                        <label class="form-label fw-bold">4. PT 标记</label>
+                        <label class="form-label fw-bold">4. PT Toggle</label>
                         <div class="form-check form-switch mt-2">
                             <input class="form-check-input" type="checkbox" name="private" checked>
-                            <label class="form-check-label text-danger fw-bold">PT 站种子 (-p)</label>
+                            <label class="form-check-label text-danger fw-bold">PT seeding (-p)</label>
                         </div>
                     </div>
                     <div class="col-md-6 mb-3">
-                        <label class="form-label fw-bold">5. 分块大小</label>
+                        <label class="form-label fw-bold">5. Block size</label>
                         <select name="piece_size" class="form-select">
                             <option value="24" selected>16 MB</option>
                             <option value="22">4 MB</option>
@@ -181,36 +181,36 @@
                         </select>
                     </div>
                 </div>
-                <button type="button" id="start-task-btn" class="btn btn-dark w-100 btn-lg">🚀 启动任务</button>
+                <button type="button" id="start-task-btn" class="btn btn-dark w-100 btn-lg">🚀 Launch task</button>
             </form>
             {% endif %}
         </div>
     </div>
 </div>
 
-<div class="modal fade" id="renameModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">重命名</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><input type="hidden" id="rename-old-name"><input type="text" class="form-control" id="rename-new-name"></div><div class="modal-footer"><button type="button" class="btn btn-primary" onclick="submitRename()">保存</button></div></div></div></div>
-<div class="modal fade" id="batchMoveModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">批量移动</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><label class="form-label">目标路径</label><input type="text" class="form-control" id="move-dest-path"></div><div class="modal-footer"><button type="button" class="btn btn-primary" onclick="submitBatchMove()">确定</button></div></div></div></div>
-<div class="modal fade" id="txtModal" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">编辑文件</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><input type="hidden" id="txt-filename"><textarea class="form-control" id="txt-content" rows="15"></textarea></div><div class="modal-footer"><button type="button" class="btn btn-primary" onclick="submitSaveTxt()">保存</button></div></div></div></div>
-<div class="modal fade" id="newFileModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">新建文件</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><input type="text" class="form-control" id="new-filename" placeholder="name.txt"></div><div class="modal-footer"><button type="button" class="btn btn-primary" onclick="submitCreateTxt()">创建</button></div></div></div></div>
+<div class="modal fade" id="renameModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Rename</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><input type="hidden" id="rename-old-name"><input type="text" class="form-control" id="rename-new-name"></div><div class="modal-footer"><button type="button" class="btn btn-primary" onclick="submitRename()">Save</button></div></div></div></div>
+<div class="modal fade" id="batchMoveModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Batch move</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><label class="form-label">Target path</label><input type="text" class="form-control" id="move-dest-path"></div><div class="modal-footer"><button type="button" class="btn btn-primary" onclick="submitBatchMove()">Confirmed</button></div></div></div></div>
+<div class="modal fade" id="txtModal" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Edit the file</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><input type="hidden" id="txt-filename"><textarea class="form-control" id="txt-content" rows="15"></textarea></div><div class="modal-footer"><button type="button" class="btn btn-primary" onclick="submitSaveTxt()">Save</button></div></div></div></div>
+<div class="modal fade" id="newFileModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">New File</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><input type="text" class="form-control" id="new-filename" placeholder="name.txt"></div><div class="modal-footer"><button type="button" class="btn btn-primary" onclick="submitCreateTxt()">Create</button></div></div></div></div>
 
 <div class="modal fade" id="translateConfigModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">🤖 AI 字幕翻译配置</h5>
+                <h5 class="modal-title">🤖 AI Subtitle Translation Configuration</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <p>文件：<strong id="trans-filename-display" class="text-primary"></strong></p>
                 <div class="mb-3">
                     <label class="form-label">DeepSeek API Key</label>
-                    <input type="password" class="form-control" id="deepseek-key-input" placeholder="如果不填，将使用环境变量">
+                    <input type="password" class="form-control" id="deepseek-key-input" placeholder="If not specified, the environment variable will be used.">
                 </div>
                 <input type="hidden" id="trans-filename">
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                <button type="button" class="btn btn-warning" onclick="startTranslationTask()">🚀 启动翻译</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-warning" onclick="startTranslationTask()">🚀 Initiate translation</button>
             </div>
         </div>
     </div>
@@ -220,18 +220,18 @@
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header bg-dark text-white">
-                <h5 class="modal-title">📋 任务运行日志</h5>
+                <h5 class="modal-title">📋 Task Execution Log</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" id="log-modal-close" style="display: none;"></button>
             </div>
             <div class="modal-body bg-dark p-0">
                 <div id="log-console-content" class="log-console">
-                    <div class="text-muted">正在连接日志流...</div>
+                    <div class="text-muted">Connecting to the log stream...</div>
                 </div>
             </div>
             <div class="modal-footer bg-dark border-top-0">
                 <span id="log-status-indicator" class="spinner-border spinner-border-sm text-light me-2" role="status"></span>
-                <span class="text-white small" id="log-status-text">正在运行...</span>
-                <button type="button" class="btn btn-success btn-sm ms-3" id="log-finish-btn" style="display: none;" data-bs-dismiss="modal" onclick="loadDir(currentScanPath)">完成并刷新</button>
+                <span class="text-white small" id="log-status-text">Running...</span>
+                <button type="button" class="btn btn-success btn-sm ms-3" id="log-finish-btn" style="display: none;" data-bs-dismiss="modal" onclick="loadDir(currentScanPath)">Complete and refresh</button>
             </div>
         </div>
     </div>
@@ -249,7 +249,7 @@
     let currentScanPath = ""; 
     let logPollInterval = null;
 
-    // 初始化
+    // Initialisation
     document.addEventListener("DOMContentLoaded", function() {
         if (window.location.search.includes('task_id')) {
             window.history.replaceState({}, document.title, "/");
@@ -263,7 +263,7 @@
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     }
 
-    // === 核心：读取目录 ===
+    // === Core: Reading the directory ===
     function loadDir(path) {
         fetch('/api/list_files', {
             method: 'POST',
@@ -280,7 +280,7 @@
                 document.getElementById('file-manager-section').style.display = 'block';
                 updateBatchBar(); 
             } else {
-                alert("读取失败: " + data.msg);
+                alert("Failed to read: " + data.msg);
             }
         });
     }
@@ -333,7 +333,7 @@
         document.getElementById('select-all-checkbox').checked = false;
 
         if (files.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">空目录</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Empty directory</td></tr>';
             return;
         }
 
@@ -364,12 +364,12 @@
             tdAction.className = 'single-actions'; 
 
             let actions = `
-                <button type="button" class="btn btn-outline-primary action-btn" onclick="openRename('${f.name}')">重命名</button>
-                <button type="button" class="btn btn-outline-danger action-btn" onclick="deleteFile('${f.name}')">删除</button>
+                <button type="button" class="btn btn-outline-primary action-btn" onclick="openRename('${f.name}')">Rename</button>
+                <button type="button" class="btn btn-outline-danger action-btn" onclick="deleteFile('${f.name}')">Delete</button>
             `;
             if (f.is_txt) {
                 actions = `
-                    <button type="button" class="btn btn-outline-success action-btn" onclick="editTxt('${f.name}')">编辑</button>
+                    <button type="button" class="btn btn-outline-success action-btn" onclick="editTxt('${f.name}')">Editor</button>
                     ${actions}
                 `;
             }
@@ -378,40 +378,40 @@
 
             if (f.type !== 'dir' && (lowerName.endsWith('.mkv') || lowerName.endsWith('.mp4'))) {
                 actions = `
-                    <button type="button" class="btn btn-outline-info action-btn" onclick="extractSubs('${f.name}')">提取字幕</button>
-                    <button type="button" class="btn btn-outline-primary action-btn ms-1" onclick="extractAudio('${f.name}')">提取音轨</button>
+                    <button type="button" class="btn btn-outline-info action-btn" onclick="extractSubs('${f.name}')">Extract subtitles</button>
+                    <button type="button" class="btn btn-outline-primary action-btn ms-1" onclick="extractAudio('${f.name}')">Extract audio track</button>
                     ${actions}
                 `;
             }
 
-            // === 修改开始：音频与字幕下载逻辑 ===
+            // === Modification begins: Audio and subtitle download logic ===
             const subExts = ['.srt', '.ass', '.ssa', '.sup', '.sub', '.vtt'];
-            // 新增：定义常见的音频后缀
+            // New: Defining common audio file extensions
             const audioExts = ['.m4a', '.ac3', '.eac3', '.dts', '.flac', '.wav', '.mp3', '.mka', '.opus', '.ogg', '.thd'];
             
             const isSubtitle = subExts.some(ext => lowerName.endsWith(ext));
             const isAudio = audioExts.some(ext => lowerName.endsWith(ext));
 
-            // 只要是 字幕 或 音频，都显示下载按钮
+            // Whilst subtitles or audio are available, the download button will be displayed.
             if (f.type !== 'dir' && (isSubtitle || isAudio)) {
                 let fullPath = '/data/' + (currentScanPath ? currentScanPath + '/' : '') + f.name;
                 
                 let translateBtn = '';
-                // 只有字幕且未翻译过时，才显示翻译按钮
+                // The translation button will only appear when subtitles are present but have not yet been translated.
                 if (isSubtitle) {
                     let isTranslated = lowerName.includes('.chi.') || lowerName.includes('.zh.');
                     if (['.srt', '.ass', '.ssa', '.vtt'].some(ext => lowerName.endsWith(ext)) && !isTranslated) {
-                        translateBtn = `<button type="button" class="btn btn-outline-warning action-btn ms-1" onclick="openTranslateConfig('${f.name}')">🇨🇳 翻译</button>`;
+                        translateBtn = `<button type="button" class="btn btn-outline-warning action-btn ms-1" onclick="openTranslateConfig('${f.name}')">🇨🇳 Translation</button>`;
                     }
                 }
 
                 actions = `
-                    <a href="/download?file=${encodeURIComponent(fullPath)}" class="btn btn-outline-secondary action-btn" title="点击下载">⬇️ 下载</a>
+                    <a href="/download?file=${encodeURIComponent(fullPath)}" class="btn btn-outline-secondary action-btn" title="Click to download">⬇️ Download</a>
                     ${translateBtn}
                     ${actions}
                 `;
             }
-            // === 修改结束 ===
+            // === Modifications completed ===
             
             tdAction.innerHTML = actions;
             tr.appendChild(tdAction);
@@ -447,11 +447,11 @@
         return Array.from(document.querySelectorAll('.file-checkbox:checked')).map(cb => cb.value);
     }
 
-    // === 批量操作 ===
+    // === Batch processing ===
     function batchDelete() {
         const files = getSelectedFiles();
         if (files.length === 0) return;
-        if (!confirm(`确定要删除选中的 ${files.length} 个项目吗？`)) return;
+        if (!confirm(`Are you sure you wish to delete the selected ${files.length} items?`)) return;
 
         fetch('/api/file_op', {
             method: 'POST',
@@ -472,7 +472,7 @@
     function submitBatchMove() {
         const files = getSelectedFiles();
         const dest = document.getElementById('move-dest-path').value;
-        if (!dest) return alert("目标路径不能为空");
+        if (!dest) return alert("The target path cannot be empty.");
 
         fetch('/api/file_op', {
             method: 'POST',
@@ -484,14 +484,14 @@
                 batchMoveModal.hide();
                 loadDir(currentScanPath);
             } else {
-                alert("移动失败: " + data.msg);
+                alert("Failed to move: " + data.msg);
             }
         });
     }
 
-    // === 单文件操作 ===
+    // === Single-file operation ===
     function deleteFile(name) {
-        if (!confirm(`确定要永久删除 ${name} 吗？`)) return;
+        if (!confirm(`Are you sure you wish to permanently delete this? ${name}`)) return;
         fetch('/api/file_op', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
@@ -555,12 +555,12 @@
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({type: 'save_txt', current_path: currentScanPath, filename: name, content: content})
         }).then(res => res.json()).then(data => {
-            if (data.success) { txtModal.hide(); alert("保存成功"); } else alert(data.msg);
+            if (data.success) { txtModal.hide(); alert("Saved successfully"); } else alert(data.msg);
         });
     }
 
     function extractSubs(name) {
-        if (!confirm(`确定要从视频 "${name}" 中提取所有字幕吗？\n提取的字幕将保存在当前目录下。`)) return;
+        if (!confirm(`Are you sure you wish to extract all subtitles from the video "${name}"？\nThe extracted subtitles will be saved in the current directory.`)) return;
         fetch('/api/file_op', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
@@ -574,11 +574,11 @@
     }
 
     function extractAudio(name) {
-        if (!confirm(`确定要从视频 "${name}" 中提取所有音轨吗？\n提取的音频将保存在当前目录下。`)) return;
+        if (!confirm(`Are you sure you wish to extract all audio tracks from the video "${name}"？\nThe extracted audio will be saved in the current directory.`)) return;
         
-        // 显示一个临时的加载状态（可选，但推荐）
+        //  Display a temporary loading state (optional, but recommended)
         const originalText = event.target.innerText;
-        event.target.innerText = "提取中...";
+        event.target.innerText = "Extracting...";
         event.target.disabled = true;
 
         fetch('/api/file_op', {
@@ -589,24 +589,24 @@
         .then(res => res.json())
         .then(data => {
             if (data.success) { 
-                alert("完成: " + data.msg); 
+                alert("Completed: " + data.msg); 
                 loadDir(currentScanPath); 
             } else { 
-                alert("提取失败: " + data.msg); 
-                // 恢复按钮状态
+                alert("Extraction failed: " + data.msg); 
+                // Restore button state
                 event.target.innerText = originalText;
                 event.target.disabled = false;
             }
         })
         .catch(err => {
-            alert("请求错误: " + err);
-            // 恢复按钮状态
+            alert("Request error: " + err);
+            // Restore button state
             event.target.innerText = originalText;
             event.target.disabled = false;
         });
     }
 
-    // === 翻译流程 ===
+    // === Translation Process ===
     function openTranslateConfig(name) {
         document.getElementById('trans-filename').value = name;
         document.getElementById('trans-filename-display').innerText = name;
@@ -622,9 +622,9 @@
 
         translateConfigModal.hide();
         
-        document.getElementById('log-console-content').innerHTML = '<div class="text-muted">> 初始化任务请求...</div>';
+        document.getElementById('log-console-content').innerHTML = '<div class="text-muted">> Initialise task request...</div>';
         document.getElementById('log-status-indicator').style.display = 'inline-block';
-        document.getElementById('log-status-text').innerText = '正在启动...';
+        document.getElementById('log-status-text').innerText = 'Starting up...';
         document.getElementById('log-finish-btn').style.display = 'none';
         document.getElementById('log-modal-close').style.display = 'none';
         logModal.show();
@@ -644,12 +644,12 @@
             if (data.success) {
                 pollTaskLogs(data.task_id);
             } else {
-                alert("启动失败: " + data.msg);
+                alert("Startup failed: " + data.msg);
                 logModal.hide();
             }
         })
         .catch(err => {
-            alert("网络错误: " + err);
+            alert("Network error: " + err);
             logModal.hide();
         });
     }
@@ -679,14 +679,14 @@
                     if (data.status === 'done' || data.status === 'error') {
                         clearInterval(logPollInterval);
                         document.getElementById('log-status-indicator').style.display = 'none';
-                        document.getElementById('log-status-text').innerText = data.status === 'done' ? '任务完成' : '任务出错';
+                        document.getElementById('log-status-text').innerText = data.status === 'done' ? 'Task completed' : 'Task error';
                         document.getElementById('log-finish-btn').style.display = 'inline-block';
                         document.getElementById('log-modal-close').style.display = 'block';
                         
                         if(data.status === 'done') {
-                            consoleDiv.innerHTML += '<div class="text-success fw-bold mt-2">> ✅ 全部完成！请点击下方按钮刷新列表。</div>';
+                            consoleDiv.innerHTML += '<div class="text-success fw-bold mt-2">> ✅ All done! Please click the button below to refresh the list.</div>';
                         } else {
-                            consoleDiv.innerHTML += '<div class="text-danger fw-bold mt-2">> ❌ 发生错误，请检查上方日志。</div>';
+                            consoleDiv.innerHTML += '<div class="text-danger fw-bold mt-2">> ❌ An error has occurred. Please check the log above.</div>';
                         }
                         consoleDiv.scrollTop = consoleDiv.scrollHeight;
                     }
@@ -712,16 +712,16 @@
         .then(res => res.json())
         .then(data => {
             if (data.success) {
-                // 做种任务也可以复用 pollTaskLogs 逻辑，或者保留简单的 pollStatus
+                // Seeding tasks can also be reused. pollTaskLogs Logic, or keep it simple pollStatus
                 pollStatus(data.task_id);
             } else {
-                alert("启动失败: " + data.msg);
+                alert("Startup failed: " + data.msg);
                 form.style.display = 'block';
                 processingBox.style.display = 'none';
             }
         })
         .catch(err => {
-            alert("请求错误: " + err);
+            alert("Request error: " + err);
             form.style.display = 'block';
             processingBox.style.display = 'none';
         });
@@ -737,11 +737,11 @@
                         statusText.innerText = data.msg;
                     } else if (data.status === 'done') {
                         clearInterval(pollInterval);
-                        statusText.innerText = "任务完成！正在刷新结果...";
+                        statusText.innerText = "Task completed! Refreshing results...";
                         window.location.href = `/?task_id=${taskId}`;
                     } else if (data.status === 'error') {
                         clearInterval(pollInterval);
-                        alert("任务出错: " + data.msg);
+                        alert("Task error: " + data.msg);
                         window.location.reload();
                     }
                 });
