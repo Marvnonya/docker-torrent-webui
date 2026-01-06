@@ -11,15 +11,15 @@ import re
 import requests
 from openai import OpenAI
 from functools import wraps
-# 新增 quote 用于编码路径
+# Added quote for encoding paths
 from urllib.parse import unquote, unquote_plus, quote
 from flask import Flask, render_template, request, send_file, flash, redirect, url_for, session, jsonify
-# 新增：用于多线程并发处理
+# New: For multi-threaded concurrent processing
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 app = Flask(__name__)
 
-# ================= 配置区 =================
+# ================= Configuration =================
 ADMIN_USERNAME = os.environ.get('ADMIN_USER', 'admin') 
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASS', 'password123') 
 SECRET_KEY = os.environ.get('SECRET_KEY', 'seaside_secret_key')
@@ -30,29 +30,29 @@ BASE_DIR = "/data"
 CONFIG_FILE = os.path.join(BASE_DIR, '.tracker_config.json')
 
 app.secret_key = SECRET_KEY
-task_store = {} # 存储所有任务（做种 + 翻译）的状态和日志
+task_store = {} # Store the status and logs for all tasks (seeding + translation)
 
-# ================= 辅助函数 =================
+# ================= Auxiliary functions =================
 
 def log_task(task_id, message):
-    """记录任务日志"""
+    """Record task logs"""
     timestamp = datetime.datetime.now().strftime("%H:%M:%S")
     log_entry = f"[{timestamp}] {message}"
-    print(log_entry, flush=True) # 控制台打印
+    print(log_entry, flush=True) # Console output
     
     if task_id in task_store:
-        # 存入内存供前端轮询
+        # Stored in memory for front-end polling
         if 'logs' not in task_store[task_id]:
             task_store[task_id]['logs'] = []
         task_store[task_id]['logs'].append(log_entry)
-        task_store[task_id]['msg'] = message # 更新简短状态
+        task_store[task_id]['msg'] = message # Update brief status
 
 def get_safe_path(rel_path):
     if not rel_path: rel_path = ""
     clean_rel = rel_path.strip('/')
     abs_base = os.path.abspath(BASE_DIR)
     abs_target = os.path.abspath(os.path.join(abs_base, clean_rel))
-    if not abs_target.startswith(abs_base): raise ValueError("非法路径访问")
+    if not abs_target.startswith(abs_base): raise ValueError("Unauthorised path access")
     return abs_target
 
 def load_default_tracker():
@@ -92,12 +92,12 @@ def get_video_duration(video_path):
         return float(val) if val else 0
     except: return 0
 
-# === 翻译逻辑 (多线程并发优化版) ===
+# === Translation Logic (Multithreaded Concurrency Optimisation Edition) ===
 def background_translate(task_id, file_path):
-    log_task(task_id, f"开始处理文件: {os.path.basename(file_path)}")
+    log_task(task_id, f"Commencing processing of the document: {os.path.basename(file_path)}")
     
     if not DEEPSEEK_API_KEY:
-        log_task(task_id, "❌ 错误: 未配置 DeepSeek API Key")
+        log_task(task_id, "❌ Error: Not configured DeepSeek API Key")
         task_store[task_id]['status'] = 'error'
         return
 
@@ -106,47 +106,47 @@ def background_translate(task_id, file_path):
     is_srt = filename.lower().endswith('.srt')
     
     try:
-        # 读取文件内容
+        # Read the contents of the file
         with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
             full_content = f.read()
 
         if not full_content.strip():
-            log_task(task_id, "文件内容为空，结束。")
+            log_task(task_id, "The file contents are empty.")
             task_store[task_id]['status'] = 'done'
             return
 
         blocks = []
         if is_srt:
-            log_task(task_id, "检测到 SRT 字幕，正在按时间轴分块...")
-            # 统一换行符
+            log_task(task_id, "SRT subtitles detected, currently segmenting by timeline...")
+            # Uniform line break
             full_content = full_content.replace('\r\n', '\n').replace('\r', '\n')
-            # 按双换行符分割 SRT 块
+            # Split SRT blocks by double line breaks
             blocks = re.split(r'\n\s*\n', full_content)
             blocks = [b.strip() for b in blocks if b.strip()]
-            log_task(task_id, f"解析完成，共 {len(blocks)} 个字幕段落。")
+            log_task(task_id, f"Parsing complete. A total of {len(blocks)} subtitle segments.")
         else:
-            log_task(task_id, "普通文本模式，按行处理...")
+            log_task(task_id, "Plain text mode, processed line by line...")
             blocks = [line.strip() for line in full_content.split('\n') if line.strip()]
 
-        # 批处理配置
-        BATCH_SIZE = 30  # 稍微减小一点单次请求量
+        # Batch configuration
+        BATCH_SIZE = 30  # Slightly reduce the volume of requests per transaction
         total_batches = (len(blocks) + BATCH_SIZE - 1) // BATCH_SIZE
         
         # 定义独立的批次处理函数
         def _process_batch(batch_index, batch_blocks):
             """
-            处理单个批次的子函数，返回 (index, translated_text)
+            Subroutine for processing individual batches, returning (index, translated_text)
             """
             batch_input_text = "\n\n".join(batch_blocks)
             
             system_prompt = (
-                "你是一位精通多国语言的电影字幕翻译专家。我将发给你一段包含时间轴的 SRT 原文。"
-                "请结合上下文语境（Context），将对话内容翻译成流畅、地道的简体中文。"
-                "**严格遵守以下格式规则**："
-                "1. **绝对保留**原有的序号和时间轴，严禁修改数字。"
-                "2. 仅将时间轴下方的外语对话替换为中文翻译。"
-                "3. 保持原有的 SRT 格式结构（序号-时间-文本），段落之间用空行分隔。"
-                "4. 不要输出任何解释性文字，只输出翻译后的 SRT 内容。"
+                "You are a multilingual film subtitling expert. I shall send you the original SRT file complete with timecodes."
+                "Please translate the dialogue into fluent, natural Simplified Chinese, taking into account the context."
+                "**Strictly adhere to the following formatting rules**："
+                "1. **The original numbering and timeline must be retained without exception.** Modifying the figures is strictly prohibited."
+                "2. Replace only the foreign-language dialogue beneath the timeline with its Chinese translation."
+                "3. Retain the original SRT format structure (number-time-text), with blank lines separating paragraphs."
+                "4. Do not output any explanatory text; output only the translated SRT content."
             )
             
             retry_count = 0
@@ -156,7 +156,7 @@ def background_translate(task_id, file_path):
                         model="deepseek-chat",
                         messages=[
                             {"role": "system", "content": system_prompt},
-                            {"role": "user", "content": f"请翻译以下字幕片段:\n\n{batch_input_text}"},
+                            {"role": "user", "content": f"Please translate the following subtitle segment.:\n\n{batch_input_text}"},
                         ],
                         stream=False,
                         temperature=1.3
@@ -171,26 +171,26 @@ def background_translate(task_id, file_path):
                 except Exception as e:
                     retry_count += 1
             
-            # 失败兜底：返回原文
+            # Fallback: Return to original text
             return batch_index, batch_input_text
 
-        # 准备所有批次数据
+        # Prepare all batch data
         all_batches = []
         for i in range(0, len(blocks), BATCH_SIZE):
             batch_data = blocks[i:i + BATCH_SIZE]
             batch_index = i // BATCH_SIZE
             all_batches.append((batch_index, batch_data))
 
-        translated_results = [None] * len(all_batches) # 预分配槽位
+        translated_results = [None] * len(all_batches) # Pre-allocated slots
         completed_count = 0
         
-        # 并发执行配置
-        MAX_WORKERS = 8 # 建议设置在 5-10 之间
+        # Concurrent Execution Configuration
+        MAX_WORKERS = 8 # It is recommended to set it between 5 and 10.
         
-        log_task(task_id, f"🚀 启动并发翻译，线程数: {MAX_WORKERS}，共 {total_batches} 个批次...")
+        log_task(task_id, f"🚀 Enable concurrent translation, number of threads: {MAX_WORKERS}，Total {total_batches} batches...")
 
         with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-            # 提交所有任务
+            # Submit all tasks
             future_to_batch = {
                 executor.submit(_process_batch, b_idx, b_data): b_idx 
                 for b_idx, b_data in all_batches
@@ -203,39 +203,39 @@ def background_translate(task_id, file_path):
                     translated_results[idx] = content
                     completed_count += 1
                     
-                    # 进度更新
+                    # Progress Update
                     if completed_count % 5 == 0 or completed_count == total_batches:
                          progress = (completed_count / total_batches) * 100
-                         log_task(task_id, f"进度: {progress:.1f}% ({completed_count}/{total_batches})")
+                         log_task(task_id, f"Progress: {progress:.1f}% ({completed_count}/{total_batches})")
                          
                 except Exception as exc:
                     log_task(task_id, f"❌ 批次 {b_idx} 发生异常: {exc}")
                     translated_results[b_idx] = "\n\n".join(all_batches[b_idx][1])
 
-        # 检查是否所有批次都成功
+        # Verify that all batches have been successfully processed.
         if any(r is None for r in translated_results):
-             log_task(task_id, "⚠️ 警告：部分批次可能丢失，正在尝试修复...")
+             log_task(task_id, "⚠️ Warning: Some batches may be missing; attempts are being made to rectify this....")
              for i, res in enumerate(translated_results):
                  if res is None:
                      translated_results[i] = "\n\n".join(all_batches[i][1])
 
-        # 保存文件
+        # Save file
         dir_name, base_name = os.path.split(file_path)
         name_part, ext_part = os.path.splitext(base_name)
         new_filename = f"{name_part}.chi{ext_part}"
         new_path = os.path.join(dir_name, new_filename)
 
-        log_task(task_id, "翻译完成，正在拼接写入文件...")
+        log_task(task_id, "Translation complete, currently concatenating and writing to file....")
 
         final_content = "\n\n".join(translated_results)
         with open(new_path, 'w', encoding='utf-8') as f:
             f.write(final_content)
 
-        log_task(task_id, f"✅ 全部处理完毕！文件已保存为: {new_filename}")
+        log_task(task_id, f"✅ All processing complete! The file has been saved as: {new_filename}")
         task_store[task_id]['status'] = 'done'
 
     except Exception as e:
-        log_task(task_id, f"💀 致命错误: {str(e)}")
+        log_task(task_id, f"💀 Fatal error: {str(e)}")
         task_store[task_id]['status'] = 'error'
 
 def upload_to_pixhost(file_path):
@@ -272,7 +272,7 @@ def generate_screenshots(video_path, output_base_path, mode, quality):
         if os.path.exists(temp_dir): shutil.rmtree(temp_dir)
         os.makedirs(temp_dir, exist_ok=True)
         duration = get_video_duration(video_path)
-        if duration < 60: return "success", "视频太短，跳过截图"
+        if duration < 60: return "success", "Video too short, skipping screenshot"
         
         result_file = None; preview_data = None
         
@@ -293,7 +293,7 @@ def generate_screenshots(video_path, output_base_path, mode, quality):
             if os.path.exists(output_jpg): 
                 result_file = output_jpg; preview_data = output_jpg
                 generated_images.append(output_jpg) 
-            else: return "error", "拼图生成失败"
+            else: return "error", "Puzzle generation failed"
         else:
             target_width, q_val, extra_flags = settings_full.get(quality, (1920, 1, []))
             image_list = []
@@ -323,8 +323,8 @@ def generate_screenshots(video_path, output_base_path, mode, quality):
         if os.path.exists(temp_dir): shutil.rmtree(temp_dir)
 
 def background_process(tracker_url, is_private, comment, piece_size, full_source_path, output_folder, task_id, shot_mode, shot_quality):
-    log_task(task_id, f"启动做种任务...")
-    task_store[task_id] = {'status': 'running', 'msg': '初始化...', 'files': {}, 'bbcode': ''}
+    log_task(task_id, f"Initiate seeding task...")
+    task_store[task_id] = {'status': 'running', 'msg': 'Initialisation...', 'files': {}, 'bbcode': ''}
     try:
         if not os.path.exists(output_folder): os.makedirs(output_folder, exist_ok=True)
         base_name = os.path.basename(full_source_path.rstrip('/')) if os.path.isdir(full_source_path) else os.path.basename(full_source_path)
@@ -342,7 +342,7 @@ def background_process(tracker_url, is_private, comment, piece_size, full_source
                     try: os.remove(os.path.join(output_folder, fname))
                     except: pass
 
-        task_store[task_id]['msg'] = '正在生成种子...'
+        task_store[task_id]['msg'] = 'Generating torrent...'
         cmd = ["mktorrent", "-v", "-l", piece_size, "-a", tracker_url]
         if is_private: cmd.append("-p")
         if comment: cmd.extend(["-c", comment])
@@ -351,14 +351,14 @@ def background_process(tracker_url, is_private, comment, piece_size, full_source
         subprocess.run(cmd, capture_output=True)
         if os.path.exists(f_torrent): task_store[task_id]['files']['torrent'] = f_torrent
 
-        task_store[task_id]['msg'] = '扫描视频文件...'
+        task_store[task_id]['msg'] = 'Scan video files...'
         target_media_file = find_largest_file(full_source_path)
         if target_media_file:
-            task_store[task_id]['msg'] = '生成 MediaInfo...'
+            task_store[task_id]['msg'] = 'Generate MediaInfo...'
             subprocess.run(["mediainfo", target_media_file, f"--LogFile={f_info}"], stdout=subprocess.DEVNULL)
             if os.path.exists(f_info): task_store[task_id]['files']['info'] = f_info
             
-            task_store[task_id]['msg'] = f'正在截图 ({shot_mode}/{shot_quality})...'
+            task_store[task_id]['msg'] = f'Taking a screenshot ({shot_mode}/{shot_quality})...'
             status, res = generate_screenshots(target_media_file, f_shot_base, shot_mode, shot_quality)
             if status == "success":
                  if res.get('file'): task_store[task_id]['files']['shot_download'] = res['file']
@@ -366,7 +366,7 @@ def background_process(tracker_url, is_private, comment, piece_size, full_source
                  
                  image_files = res.get('images', [])
                  if image_files:
-                     task_store[task_id]['msg'] = f'正在上传 {len(image_files)} 张图片到 Pixhost...'
+                     task_store[task_id]['msg'] = f'Uploading in progress {len(image_files)} 张图片到 Pixhost...'
                      bbcode_lines = []
                      for idx, img_p in enumerate(image_files):
                          code = upload_to_pixhost(img_p)
@@ -374,23 +374,23 @@ def background_process(tracker_url, is_private, comment, piece_size, full_source
                              bbcode_lines.append(code)
                      task_store[task_id]['bbcode'] = "\n".join(bbcode_lines)
 
-                 task_store[task_id]['msg'] = '✅ 全部成功'
-            else: task_store[task_id]['msg'] = f"⚠️ 截图失败: {res}"
-        else: task_store[task_id]['msg'] = '✅ 完成 (无视频)'
+                 task_store[task_id]['msg'] = '✅ All successful'
+            else: task_store[task_id]['msg'] = f"⚠️ Screenshot failed: {res}"
+        else: task_store[task_id]['msg'] = '✅ Completed (no video)'
         task_store[task_id]['status'] = 'done'
     except Exception as e:
         task_store[task_id]['status'] = 'error'
-        task_store[task_id]['msg'] = f"系统错误: {str(e)}"
+        task_store[task_id]['msg'] = f"System error: {str(e)}"
 
-# === 字幕提取逻辑 ===
+# === Subtitle Extraction Logic ===
 def extract_subtitle_streams(video_path):
     try:
         cmd_probe = ["ffprobe", "-v", "error", "-select_streams", "s", "-show_entries", "stream=index:stream_tags=language,title:stream=codec_name", "-of", "json", video_path]
         result = subprocess.run(cmd_probe, capture_output=True, text=True)
         try: data = json.loads(result.stdout)
-        except: return False, "无法读取媒体信息"
+        except: return False, "Unable to read media information"
         streams = data.get('streams', [])
-        if not streams: return False, "未检测到字幕流"
+        if not streams: return False, "No subtitle stream detected"
         count = 0
         base_name = os.path.splitext(video_path)[0]
         for stream in streams:
@@ -401,23 +401,23 @@ def extract_subtitle_streams(video_path):
             out_name = f"{base_name}.{lang}.{idx}.{ext}"
             subprocess.run(["ffmpeg", "-y", "-i", video_path, "-map", f"0:{idx}", "-c", "copy", out_name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             if os.path.exists(out_name): count += 1
-        return True, f"提取 {count} 条字幕"
+        return True, f"Extract {count} subtitles"
     except Exception as e: return False, str(e)
 
-# === 新增：音轨提取逻辑 ===
+# === New: Audio track extraction logic ===
 def extract_audio_streams(video_path):
     try:
-        # 使用 ffprobe 获取音频流信息
+        # Use ffprobe to obtain audio stream information
         cmd_probe = ["ffprobe", "-v", "error", "-select_streams", "a", "-show_entries", "stream=index:stream_tags=language,title:stream=codec_name", "-of", "json", video_path]
         result = subprocess.run(cmd_probe, capture_output=True, text=True)
         try: 
             data = json.loads(result.stdout)
         except: 
-            return False, "无法读取媒体信息"
+            return False, "Unable to read media information"
             
         streams = data.get('streams', [])
         if not streams: 
-            return False, "未检测到音频流"
+            return False, "No audio stream detected"
             
         count = 0
         base_name = os.path.splitext(video_path)[0]
@@ -436,13 +436,13 @@ def extract_audio_streams(video_path):
             tags = stream.get('tags', {})
             lang = tags.get('language', 'und')
             
-            # 根据编码决定后缀，未知的默认为 mka
+            # The suffix is determined by the encoding; the default for unknown encodings is mka.
             ext = codec_map.get(codec, 'mka')
             
-            # 文件名格式: 视频名.语言.流索引.后缀
+            # File name format: Video name.Language.Stream index.Extension
             out_name = f"{base_name}.{lang}.{idx}.{ext}"
             
-            # 提取命令 (-c copy 无损提取)
+            # Extraction command (-c copy lossless extraction)
             subprocess.run(["ffmpeg", "-y", "-i", video_path, "-map", f"0:{idx}", "-c", "copy", out_name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             
             if os.path.exists(out_name): 
@@ -452,7 +452,7 @@ def extract_audio_streams(video_path):
     except Exception as e: 
         return False, str(e)
         
-# ================= 路由 =================
+# ================= Routing =================
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -466,7 +466,7 @@ def login():
         if request.form['username'] == ADMIN_USERNAME and request.form['password'] == ADMIN_PASSWORD:
             session['logged_in'] = True
             return redirect(url_for('index'))
-        flash('错误', 'danger')
+        flash('Error', 'danger')
     return render_template('login.html')
 
 @app.route('/logout')
@@ -487,7 +487,7 @@ def list_files():
     try:
         rel_path = request.json.get('path', '').strip()
         full_path = get_safe_path(rel_path)
-        if not os.path.exists(full_path): return jsonify({'success': False, 'msg': '路径不存在'})
+        if not os.path.exists(full_path): return jsonify({'success': False, 'msg': 'The path does not exist.'})
         file_list = []
         current_rel = os.path.relpath(full_path, BASE_DIR)
         if current_rel == '.': current_rel = ""
@@ -530,7 +530,7 @@ def file_op():
         
         elif op_type == 'rename':
             old_name = data.get('old_name'); new_name = data.get('new_name')
-            if not new_name: return jsonify({'success': False, 'msg': '新文件名不能为空'})
+            if not new_name: return jsonify({'success': False, 'msg': 'The new file name cannot be left blank.'})
             old_full = get_safe_path(os.path.join(current_path, old_name))
             new_full = get_safe_path(os.path.join(current_path, new_name))
             os.rename(old_full, new_full)
@@ -538,10 +538,10 @@ def file_op():
         
         elif op_type == 'create_txt':
             filename = data.get('filename')
-            if not filename: return jsonify({'success': False, 'msg': '文件名不能为空'})
+            if not filename: return jsonify({'success': False, 'msg': 'The filename cannot be empty.'})
             if '.' not in filename: filename += '.txt'
             full_target = get_safe_path(os.path.join(current_path, filename))
-            if os.path.exists(full_target): return jsonify({'success': False, 'msg': '文件已存在'})
+            if os.path.exists(full_target): return jsonify({'success': False, 'msg': 'The file already exists.'})
             with open(full_target, 'w', encoding='utf-8') as f: f.write("")
             return jsonify({'success': True})
         
@@ -569,56 +569,56 @@ def file_op():
             success, msg = extract_audio_streams(full_target)
             return jsonify({'success': success, 'msg': msg})
 
-        # === 核心修改：翻译任务 ===
+        # === Core modification: Translation task ===
         elif op_type == 'translate_sub':
             filename = data.get('filename')
             full_target = get_safe_path(os.path.join(current_path, filename))
             
             if not os.path.exists(full_target):
-                return jsonify({'success': False, 'msg': '文件不存在'})
+                return jsonify({'success': False, 'msg': 'The file does not exist.'})
             
-            # 生成任务 ID
+            # Generate task ID
             task_id = str(uuid.uuid4())[:8]
             
-            # 初始化任务状态
+            # Initialise task status
             task_store[task_id] = {
                 'status': 'running', 
-                'msg': '准备开始翻译...', 
-                'logs': [], # 专门用于前端展示日志
+                'msg': 'Preparing to commence translation...', 
+                'logs': [], # Specifically designed for front-end log display
                 'type': 'translation'
             }
 
-            # 启动后台线程
+            # Launch background thread
             t = threading.Thread(target=background_translate, args=(task_id, full_target))
             t.start()
             
             return jsonify({
                 'success': True, 
                 'task_id': task_id, 
-                'msg': '任务已启动，请查看日志窗口。'
+                'msg': 'The task has been initiated. Please consult the log window.'
             })
         
         elif op_type == 'batch_delete':
             filenames = data.get('filenames', [])
-            if not filenames: return jsonify({'success': False, 'msg': '未选择文件'})
+            if not filenames: return jsonify({'success': False, 'msg': 'No file selected'})
             for name in filenames:
                 try:
                     full_target = get_safe_path(os.path.join(current_path, name))
                     if os.path.exists(full_target):
                         if os.path.isdir(full_target): shutil.rmtree(full_target)
                         else: os.remove(full_target)
-                except Exception as e: print(f"删除失败 {name}: {e}")
+                except Exception as e: print(f"Deletion failed {name}: {e}")
             return jsonify({'success': True})
         
         elif op_type == 'batch_move':
             filenames = data.get('filenames', [])
             dest_rel_path = data.get('destination', '').strip()
-            if not filenames: return jsonify({'success': False, 'msg': '未选择文件'})
-            if not dest_rel_path: return jsonify({'success': False, 'msg': '目标路径不能为空'})
+            if not filenames: return jsonify({'success': False, 'msg': 'No file selected'})
+            if not dest_rel_path: return jsonify({'success': False, 'msg': 'The target path cannot be empty.'})
             dest_full = get_safe_path(dest_rel_path)
             if not os.path.exists(dest_full) or not os.path.isdir(dest_full):
                  try: os.makedirs(dest_full, exist_ok=True)
-                 except: return jsonify({'success': False, 'msg': '目标文件夹不存在且无法创建'})
+                 except: return jsonify({'success': False, 'msg': 'The target folder does not exist and cannot be created'})
             success_count = 0
             for name in filenames:
                 try:
@@ -626,10 +626,10 @@ def file_op():
                     if src_full == dest_full: continue 
                     shutil.move(src_full, dest_full)
                     success_count += 1
-                except Exception as e: print(f"移动失败 {name}: {e}")
-            return jsonify({'success': True, 'msg': f"成功移动 {success_count} 个项目"})
+                except Exception as e: print(f"Failed to move {name}: {e}")
+            return jsonify({'success': True, 'msg': f"Successfully moved {success_count} items"})
         
-        return jsonify({'success': False, 'msg': '未知操作'})
+        return jsonify({'success': False, 'msg': 'Unknown operation'})
     except Exception as e:
         return jsonify({'success': False, 'msg': str(e)})
 
@@ -638,8 +638,8 @@ def file_op():
 def submit_task():
     try:
         rel_path = request.form.get('path', '').strip()
-        # === 核心修复：解码路径 ===
-        # 前端传来的可能是URL编码过的(比如 %20)，需要转回正常空格，否则系统找不到文件夹
+        # === Core Fix: Decoding Path ===
+        # The frontend may send URL-encoded values (e.g., %20), which must be converted back to standard spaces; otherwise, the system will be unable to locate the folder.
         rel_path = unquote(rel_path)
         
         tracker_url = request.form.get('tracker', '').strip()
@@ -681,10 +681,10 @@ def index():
     if task_id and task_id in task_store:
         task_data = task_store[task_id]
         if task_data['status'] == 'done':
-            if "失败" in task_data['msg']: error_msg = task_data['msg']
+            if "Failure" in task_data['msg']: error_msg = task_data['msg']
             files = task_data.get('files', {})
             
-            # === 修复：对生成的文件链接进行 Quote 编码，防止特殊字符（如 %20）导致链接失效 ===
+            # ===Fixed: Quote-encoded generated file links to prevent special characters (such as %20) from causing links to break. ===
             if 'torrent' in files: 
                 download_link = quote(files['torrent'])
             if 'info' in files and os.path.exists(files['info']):
@@ -701,7 +701,7 @@ def index():
                 if isinstance(p, str) and os.path.exists(p): img_path = p
                 elif isinstance(p, list) and len(p) > 0 and os.path.exists(p[0]): img_path = p[0]
             
-            # url_for 会自动处理编码，不需要手动 quote
+            # url_for It will automatically handle encoding without requiring manual intervention.
             if img_path: shot_preview_link = url_for('view_image', path=img_path)
             
             bbcode_content = task_data.get('bbcode', '')
@@ -721,8 +721,8 @@ def index():
 def download_file():
     file_path = request.args.get('file')
     if file_path:
-        # === 修复：优先检查原始路径，如果不存在再尝试解码 ===
-        # 应对情况：文件名本身包含 %20 等字符
+        # === Fix: Prioritise checking the original path; if it does not exist, attempt decoding. ===
+        # Handling scenario: The filename itself contains characters such as %20.
         if os.path.exists(file_path): 
             return send_file(file_path, as_attachment=True)
             
@@ -730,7 +730,7 @@ def download_file():
         if os.path.exists(decoded): 
             return send_file(decoded, as_attachment=True)
             
-    return "文件未找到"
+    return "File not found"
 
 @app.route('/view_image')
 @login_required
@@ -738,7 +738,7 @@ def view_image():
     file_path = request.args.get('path')
     if not file_path: return "No path provided", 400
     
-    # === 修复：同上，优先检查原始路径 ===
+    # === Fix: As above, prioritise checking the original path. ===
     if os.path.exists(file_path): 
         return send_file(file_path, mimetype='image/jpeg')
 
